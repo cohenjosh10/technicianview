@@ -53,3 +53,12 @@ def get_technician_location(solar_farm_id):
         abort(400)
     return mocked_technician_snapshots_by_ts[ts]
 
+# Provides technician location at the time closest to the time provided by
+# the client
+@app.route('/api/v1/solar_farms/<solar_farm_id>/technicians/<timestamp>',
+        methods=['GET'])
+def get_technician_location_at_time(solar_farm_id, timestamp):
+    ts = get_most_recent_snapshot_ts(int(timestamp))
+    if ts is None:
+        abort(400)
+    return mocked_technician_snapshots_by_ts[ts]
