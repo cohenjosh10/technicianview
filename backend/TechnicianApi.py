@@ -1,5 +1,6 @@
 from flask import Flask, abort
 import json
+import flask
 import time
 
 app = Flask(__name__)
@@ -51,7 +52,9 @@ def get_technician_location(solar_farm_id):
     ts = get_most_recent_snapshot_ts(time.time())
     if ts is None:
         abort(400)
-    return mocked_technician_snapshots_by_ts[ts]
+    response = flask.jsonify(mocked_technician_snapshots_by_ts[ts])
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 # Provides technician location at the time closest to the time provided by
 # the client
@@ -61,4 +64,6 @@ def get_technician_location_at_time(solar_farm_id, timestamp):
     ts = get_most_recent_snapshot_ts(int(timestamp))
     if ts is None:
         abort(400)
-    return mocked_technician_snapshots_by_ts[ts]
+    response = mocked_technician_snapshots_by_ts[ts]
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
