@@ -16,7 +16,9 @@ const MOCK_DATA_START_TIME_S = 1592078400;
 const MOCK_DATA_SIMULATION_SPEED = 20;
 const MS_IN_S = 1000;
 
-const globalTechDict = {};
+const mTechnicianData = {};
+const mMarkers = {};
+var mMap;
 
 const getMockedTime = () => {
   return MOCK_DATA_START_TIME_S + Math.round((new Date().getTime() - APPLICATION_START_TIME_MS) / MS_IN_S) * MOCK_DATA_SIMULATION_SPEED;
@@ -35,12 +37,12 @@ const Map = () => {
         var tsecs;
         for (const tech of json.features) {
           const name = tech.properties.name;
-          if (globalTechDict[name] == null) {
+          if (mTechnicianData[name] == null) {
             tech.properties.color = "#" + Math.floor(Math.random()*16777215).toString(16);
-            globalTechDict[name] = tech;
+            mTechnicianData[name] = tech;
           } else {
-            tech.properties.color = globalTechDict[name].properties.color;
-            globalTechDict[name] = tech;
+            tech.properties.color = mTechnicianData[name].properties.color;
+            mTechnicianData[name] = tech;
           }
           tsecs = tech.properties.tsecs;
         }
@@ -53,15 +55,15 @@ const Map = () => {
     };
 
   const scheduleTechnicianFetch = () => {
-      setTimeout(() => {
-        fetchTechnicianLocation();
-      }, SERVER_REFRESH_MS);
+    setTimeout(() => {
+      fetchTechnicianLocation();
+    }, SERVER_REFRESH_MS);
   }
 
   fetchTechnicianLocation();
 
   useEffect(() => {
-    const techs = Object.values(globalTechDict);
+    const techs = Object.values(mTechnicianData);
 
     // Set screen center to the average of the existing technicians. If no
     // technicians are provided, set screen center to the Greentown Labs
@@ -74,19 +76,32 @@ const Map = () => {
     const centerLng = techs.length > 0 ? lngSum / techs.length : GREENTOWN_LABS_LNG;
     const centerLat = techs.length > 0 ? latSum / techs.length : GREENTOWN_LABS_LAT;
 
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: [centerLng, centerLat],
-      zoom: 12
-    });
+    if (mMap == null) {
+      mMap = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [centerLng, centerLat],
+        zoom: 12
+      });
+    } else {
+      mMap.setCenter([centerLng, centerLat]);
+    }
 
     for (const tech of techs) {
-      const marker = new mapboxgl.Marker({color: tech.properties.color})
-        .setLngLat([tech.geometry.coordinates[0], tech.geometry.coordinates[1]])
-        .setPopup(new mapboxgl.Popup().setText(tech.properties.name))
-        .setRotation(tech.properties.bearing)
-        .addTo(map);
+      var name = tech.properties.name;
+      if (mMarkers[name] == null) {
+        mMarkers[name] = new mapboxgl.Marker({color: tech.properties.color})
+          .setLngLat([tech.geometry.coordinates[0], tech.geometry.coordinates[1]])
+          .setPopup(new mapboxgl.Popup().setText(tech.properties.name))
+          .setRotation(tech.properties.bearing)
+          .addTo(mMap);
+      } else {
+        mMarkers[name]
+          .setLngLat([tech.geometry.coordinates[0], tech.geometry.coordinates[1]])
+          .setPopup(new mapboxgl.Popup().setText(tech.properties.name))
+          .setRotation(tech.properties.bearing)
+          .addTo(mMap);
+      }   
     }
   }, [tsecs]);
 
