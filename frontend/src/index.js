@@ -9,44 +9,59 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiY29oZW5qb3NoMTAiLCJhIjoiY2tvODM3cHViMWh5MDJ3b
 const TECHNICIANS_API = 'http://127.0.0.1:5000/api/v1/solar_farms/abc123/technicians';
 const GREENTOWN_LABS_LNG = -71.102768;
 const GREENTOWN_LABS_LAT = 42.381729;
+const SERVER_REFRESH_MS = 1000;
+
+const APPLICATION_START_TIME_MS = new Date().getTime();
+const MOCK_DATA_START_TIME_S = 1592078400;
+const MOCK_DATA_SIMULATION_SPEED = 20;
+const MS_IN_S = 1000;
+
+const globalTechDict = {};
+
+const getMockedTime = () => {
+  return MOCK_DATA_START_TIME_S + Math.round((new Date().getTime() - APPLICATION_START_TIME_MS) / MS_IN_S) * MOCK_DATA_SIMULATION_SPEED;
+}
 
 const Map = () => {
   const mapContainer = useRef();
-  const [techDict, setTechDict] = useState(null);
+  const [tsecs, setTsecs] = useState(0);
 
   // Technician Fetching
   const fetchTechnicianLocation = () => {
-    return fetch(TECHNICIANS_API)
+    var mockedTime = getMockedTime();
+    return fetch(TECHNICIANS_API + "/" + mockedTime)
       .then((response) => response.json())
       .then((json) => {
-        const newTechDict = {};
-        var isNewSnapshot = false;
+        var tsecs;
         for (const tech of json.features) {
           const name = tech.properties.name;
-          if (techDict === null || techDict[name] === null) {
-            isNewSnapshot = true;
+          if (globalTechDict[name] == null) {
             tech.properties.color = "#" + Math.floor(Math.random()*16777215).toString(16);
+            globalTechDict[name] = tech;
           } else {
-            if (tech.properties.tsecs != techDict[name].properties.tsecs) {
-              isNewSnapshot = true;
-            }
-            tech.properties.color = techDict[name].properties.color;
+            tech.properties.color = globalTechDict[name].properties.color;
+            globalTechDict[name] = tech;
           }
-          newTechDict[name] = tech;
+          tsecs = tech.properties.tsecs;
         }
-        if (isNewSnapshot) {
-          setTechDict(newTechDict);
-        }
+        setTsecs(tsecs);
+        scheduleTechnicianFetch();
       })
       .catch((error) => {
         console.error(error);
       });
     };
 
-  useEffect(() => {
-    fetchTechnicianLocation();
+  const scheduleTechnicianFetch = () => {
+      setTimeout(() => {
+        fetchTechnicianLocation();
+      }, SERVER_REFRESH_MS);
+  }
 
-    const techs = techDict != null ? Object.values(techDict) : [];
+  fetchTechnicianLocation();
+
+  useEffect(() => {
+    const techs = Object.values(globalTechDict);
 
     // Set screen center to the average of the existing technicians. If no
     // technicians are provided, set screen center to the Greentown Labs
@@ -73,9 +88,7 @@ const Map = () => {
         .setRotation(tech.properties.bearing)
         .addTo(map);
     }
-
-    return () => map.remove();
-  });
+  }, [tsecs]);
 
   return (
     <div>
