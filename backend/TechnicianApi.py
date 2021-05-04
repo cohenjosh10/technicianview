@@ -50,11 +50,7 @@ def index():
         methods=['GET'])
 def get_technician_location(solar_farm_id):
     ts = get_most_recent_snapshot_ts(time.time())
-    if ts is None:
-        abort(400)
-    response = flask.jsonify(mocked_technician_snapshots_by_ts[ts])
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response
+    return get_technician_location_from_mocked_data(ts);
 
 # Provides technician location at the time closest to the time provided by
 # the client
@@ -62,8 +58,12 @@ def get_technician_location(solar_farm_id):
         methods=['GET'])
 def get_technician_location_at_time(solar_farm_id, timestamp):
     ts = get_most_recent_snapshot_ts(int(timestamp))
+    return get_technician_location_from_mocked_data(ts);
+
+def get_technician_location_from_mocked_data(ts):
     if ts is None:
         abort(400)
-    response = mocked_technician_snapshots_by_ts[ts]
+    response = flask.jsonify(mocked_technician_snapshots_by_ts[ts])
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
+
