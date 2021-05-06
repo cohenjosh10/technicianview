@@ -11,19 +11,14 @@ mapboxgl.workerClass = MapboxWorker;
 mapboxgl.accessToken = 'pk.eyJ1IjoiY29oZW5qb3NoMTAiLCJhIjoiY2tvODM3cHViMWh5MDJ3bWxlODR5OHJwbyJ9.OsP4XQxhznEl3LkexbZyNg';
 const GREENTOWN_LABS_LNG = -71.102768;
 const GREENTOWN_LABS_LAT = 42.381729;
-const SERVER_REFRESH_MS = 1000;
+const SERVER_REFRESH_MS = 500;
 const CLOSE_PROXIMITY_M = 304.8
 
 const TECHNICIANS_API = 'http://127.0.0.1:5000/api/v1/solar_farms/abc123/technicians';
 const APPLICATION_START_TIME_MS = new Date().getTime();
 const MOCK_DATA_START_TIME_S = 1592078400;
-const MOCK_DATA_SIMULATION_SPEED = 20;
+const MOCK_DATA_SIMULATION_SPEED = 60;
 const MS_IN_S = 1000;
-
-const mTechnicianData = {};
-const mMarkers = {};
-var mMap;
-const mCloseTechnicianPairs = new Set();
 
 toast.configure();
 
@@ -33,7 +28,12 @@ const getMockedTime = () => {
 
 const Map = () => {
   const mapContainer = useRef();
+
   const [tsecs, setTsecs] = useState(0);
+  const [technicianData, setTechnicianData] = useState({});
+  const [markers, setMarkers] = useState({});
+  const [map, setMap] = useState(null);
+  const [closeTechnicianPairs, setCloseTechnicianPairs] = useState(new Set());
 
   // Technician Fetching
   const fetchTechnicianLocation = () => {
@@ -52,12 +52,12 @@ const Map = () => {
     var tsecs;
     for (const tech of json.features) {
       const name = tech.properties.name;
-      if (mTechnicianData[name] == null) {
+      if (technicianData[name] == null) {
         tech.properties.color = "#" + Math.floor(Math.random()*16777215).toString(16);
-        mTechnicianData[name] = tech;
+        technicianData[name] = tech;
       } else {
-        tech.properties.color = mTechnicianData[name].properties.color;
-        mTechnicianData[name] = tech;
+        tech.properties.color = technicianData[name].properties.color;
+        technicianData[name] = tech;
       }
       tsecs = tech.properties.tsecs;
     }
@@ -82,20 +82,20 @@ const Map = () => {
       const technicianTwoCoords = { 'latitude' : technicianTwo.geometry.coordinates[1], 'longitude' : technicianTwo.geometry.coordinates[0] }
 
       if (haversine(technicianOneCoords, technicianTwoCoords) < CLOSE_PROXIMITY_M) {
-        if (!mCloseTechnicianPairs.has(id)) {
+        if (!closeTechnicianPairs.has(id)) {
           toast('[ALERT] ' + technicianOne.properties.name + ' is within 1000 feet of ' + technicianTwo.properties.name + '!');
-          mCloseTechnicianPairs.add(id);
+          closeTechnicianPairs.add(id);
         } 
       } else {
-        if (mCloseTechnicianPairs.has(id)) {
-          mCloseTechnicianPairs.add(id);
+        if (closeTechnicianPairs.has(id)) {
+          closeTechnicianPairs.add(id);
         }
       }
     }
   }
 
   const generateTechnicianPairs = () => {
-    const technicians = Object.values(mTechnicianData);
+    const technicians = Object.values(technicianData);
     const technicianPairs = [];
     for (var i = 0; i < technicians.length; i++) {
       for (var j = i+1; j < technicians.length; j++) {
@@ -113,7 +113,7 @@ const Map = () => {
 
 
   useEffect(() => {
-    const techs = Object.values(mTechnicianData);
+    const techs = Object.values(technicianData);
 
     // Calculate a screen center to be the average of the existing technicians. 
     // If no technicians are provided, set screen center to the Greentown Labs
@@ -127,32 +127,32 @@ const Map = () => {
     const centerLat = techs.length > 0 ? latSum / techs.length : GREENTOWN_LABS_LAT;
 
     // Render the map
-    if (mMap == null) {
-      mMap = new mapboxgl.Map({
+    if (map == null) {
+      setMap(new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v11',
         center: [centerLng, centerLat],
         zoom: 12
-      });
+      }));
     } else {
-      mMap.setCenter([centerLng, centerLat]);
+      map.setCenter([centerLng, centerLat]);
     }
 
     // Render the map markers
     for (const tech of techs) {
       var name = tech.properties.name;
-      if (mMarkers[name] == null) {
-        mMarkers[name] = new mapboxgl.Marker({color: tech.properties.color})
+      if (markers[name] == null) {
+        markers[name] = new mapboxgl.Marker({color: tech.properties.color})
           .setLngLat([tech.geometry.coordinates[0], tech.geometry.coordinates[1]])
           .setPopup(new mapboxgl.Popup().setText(tech.properties.name))
           .setRotation(tech.properties.bearing)
-          .addTo(mMap);
+          .addTo(map);
       } else {
-        mMarkers[name]
+        markers[name]
           .setLngLat([tech.geometry.coordinates[0], tech.geometry.coordinates[1]])
           .setPopup(new mapboxgl.Popup().setText(tech.properties.name))
           .setRotation(tech.properties.bearing)
-          .addTo(mMap);
+          .addTo(map);
       }   
     }
   }, [tsecs]);
